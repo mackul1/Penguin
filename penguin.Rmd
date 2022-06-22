@@ -1,0 +1,337 @@
+---
+title: "Understanding a penguin's weight"
+author: "Mac Kul"
+date: "6/2/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("palmerpenguins")
+library("tidyverse")
+library("EnvStats")
+library("car")
+library("psych")
+library("knitr")
+data(package = 'palmerpenguins')
+penguins <- penguins %>%
+              na.omit()
+```
+
+
+# Abstract
+
+This analysis is motivated by my curiosity of the penguin anatomy and how culmen lengths, sex, and species type affect their body weight. To understand more about the penguin body weight, I ran a Welch's t-test to compare the means of penguin body weight between sexes, a two-way ANOVA test with the categorical variables, sex and species, and a linear regression model with the two categorical variables, along with a numeric culmen length variable to measure and predict the penguin body weight. Results show that all of the variables used, in fact affect how big penguins get.
+
+# Introduction
+
+The data were collected and made available as an R studio package ("palmerpenguins") by Dr. Kristen Gorman and the Palmer Station, Antarctica LTER, a member of the Long Term Ecological Research Network. Within the package contains 2 datasets; The raw, unfiltered dataset and the cleaned up version consisting of non redundant columns. Both datasets contain 344 penguin observations, and there are 3 different species of penguins; Gentoo, Chinstrap, and Adelie. Because I am only looking at the biology of the penguin, I decided to choose sex and species type as the two categorical variable, and body weight and culmen length as the two numeric variables. 
+
+My hypothesis is that culmen lengths play a huge role in hunting. Penguins with longer culmen will have better reach and will ultimately have better chance at succeeding hunts. In addition, sexes and species types tend to generally dictate sizes of animals. Putting all of this information together, I believe that all of the variables used in this study will be significant, and can be used to predict more penguin body weights. Ultimately, the goal for this analysis is to test the significance of the predictors sexes, species, culmen length, and also create a prediction with synthetic data with the best chosen model.
+
+# Exploratory Data Analysis
+
+To get a better grasp of the data, I visualized numeric variables in histogram plots, and categorical variables in box plots in relation to the body weight. The main thing I looked for in histogram plots is a bell shaped curve. This tells me that the data is normally distributed. However, the culmen length (bill_length_mm) turned out to have a bimodal distribution, which required a transformation. For the reason why the data is bimodal, I believe that bill lengths vary between sexes. Male penguins will have longer culmen length compared to female penguins due to genetics and their role in hunting. I transformed the data using a square root transformation.
+
+```{r, echo=FALSE}
+hist(sqrt(penguins$bill_length_mm), main = "Culmen length")
+```
+
+The histogram of the response variable, body weight of penguins (body_mass_g), the data seems to be slightly skewed to the right. Log transformation was applied to fix the curve.
+
+```{r, echo=FALSE}
+hist(log(penguins$body_mass_g), main = "Body Mass(g) of penguins")
+```
+Box plots were used to provide a visual summary of data to quickly identify mean values and potential outliers between groups. For this data, both sexes and species variables did not have many outliers, and the means of body weights are closely related with male and Chinstrap penguins being on the larger sides. Based on the visualization, female penguins have mean body mass of 8.2g, while male penguins have mean body mass of 8.4g. Interestingly enough, Adelie and Chinstrap penguins share the same mean body mass value of 8.5g while Gentoo penguins have average body mass of 8.5g.
+
+```{r, echo=FALSE}
+boxplot(penguins$body_mass_g~penguins$sex, main = "Boxplot for Weight vs. Sex")
+boxplot(penguins$body_mass_g~penguins$species, main = "Boxplot for Weight vs. Species")
+```
+
+```{r, echo=FALSE}
+par(mfrow = c(2,2))
+pairs.panels(penguins, lm = TRUE, cor = T)
+```
+
+This visualization displays a quick summary for the overall dataset. Since I am only looking at 4 variables, I do not need to transform the rest of the data. bill_length_mm and body_mass_g may not have the best bell shape curve, but since the sample size is > 50, Central Limit Theorem can be applied and fix the normality issue.
+
+# Statistical Methods
+
+## ANOVA(Analysis of Variance)
+
+Two-way ANOVA test is a statistical test used to determine the effect of two nominal predictor variables on a continuous outcome variable. Running an ANOVA test with penguin body weight as the dependent variable against sex and species as the independent variables will allow me to understand those effects at a statistical level.
+
+The three primary assumptions in ANOVA include:
+-Random Sample: Data must be random(no bias)
+-Homoscedasticity: The variance should be equal between different groups 
+-Normally distributed residuals: The actual value minus mean value must be normally distributed
+
+To verify these assumptions, the following methods were conducted:
+-Random Sample: Random sampling was assumed for this study. The penguins in Antarctica were randomly chosen.
+-Homoscedasticity: Run a "residuals vs. fitted" plot. If the points are spread out evenly with no distinct patterns, then the variances are equal. Levene's Test can also verify homoscedasticity where the null hypothesis states that the variances are equal vs. alternative hypothesis that the variances are not equal.
+-Normally distributed residuals: Run a "Normal Q-Q plot" after finding the residuals. If the points follow the line, then residuals are normally distributed. Shipro Wilk's Test can also verify the normality of the data where the null hypothesis states that the data is normally distributed vs. alternative hypothesis that the data isn't normally distributed.
+
+## Linear Regression
+
+Linear regression is a linear approach for modeling the relationship between a scalar response nd one or more explanatory variables. The response variable(y) is the penguin body weight(body_mass_g), and the explanatory variables are sex, species, and culmen length(bill_length_mm). 
+
+The summary report of a linear model will also explain the significance of explanatory variables. Hypothesis testing is used to confirm if the beta coefficients(predictors) are significant in a linear regression model. Every time we run a linear model, we test if a line is significant or not by checking the line.
+
+The three assumptions are the same as ANOVA:
+-Random sample
+-Homoscedasticity
+-Normally distributed residuals
+
+# Results
+
+## ANOVA
+
+The two-way ANOVA summary reported p-values for the categorical variables sex, species, and the interaction between sex and species. p-values < 0.05 means that the variable of interest does have a significant effect on penguin body weight.
+
+The ANOVA report on how penguin's sex affect body weight yields a p-value of 2*e^16(<0.05), which means that sex does have a significant effect on penguin body weight.
+
+The ANOVA report on how penguin's species type affect body weight yields a p-value of 2*e^16(<0.05), which means that species type does have a significant effect on penguin body weight 
+
+The ANOVA report on how the interaction of penguin's sex and species type affect body weight yields a p-value of 0.00515 (<0.05). This p-value is small enough to conclude that the interaction of sex and species have a significant effect on penguin body weight.
+
+```{r, echo = FALSE}
+anova_penguin2 <- aov(body_mass_g~species*sex, data = penguins)
+par(mfrow = c(2,2))
+plot(anova_penguin2)
+```
+The following figures show how the data satisfy homoscedasticity and the normality of residuals assumptions. In "Residuals vs. Fitted" plot, the points tend to center around y = 0 axis, signifying that the variances are equal. Similarly, the points in "Normal Q-Q" plot follow the y = x line, meaning that the data is normally distributed. 
+
+## Linear Regression
+
+The linear regression summary reported p-values for the explanatory variables and the intercept. p-values < 0.05 suggest that the coefficient of that predictor is statistically significant.
+
+```{r, echo=FALSE}
+fit_penguin <- lm(body_mass_g~species, data = penguins)
+fit_penguin2 <- lm(body_mass_g~species + sex, data = penguins)
+fit_penguin3 <- lm(body_mass_g~species + sex + bill_length_mm, data = penguins)
+# choose the best model
+# calculate AIC of each model
+result <- AIC(fit_penguin, fit_penguin2, fit_penguin3) 
+models <- list(fit_penguin, fit_penguin2, fit_penguin3)
+result$BIC <- sapply(models, BIC)
+model_summary <- lapply(models, summary)
+# for loop to extract the R^2 and adj R^2
+for (i in 1:length(models)){
+result$rsq[i] <- model_summary[[i]]$r.squared
+result$adj_rsq[i] <- model_summary[[i]]$adj.r.squared
+}
+kable(result, digits = 2, align = "c")
+```
+
+
+The best model chosen by AIC/BIC is model3, which includes the intercept, species, sex, and the culmen length(bill_length_mm). Model3 has the lowest AIC and BIC values, as well has the highest R squared value.
+
+The p-values for each predictors in model 3 are as follows:
+-Intercept(Including Adelie species type and female sex): <2*e^-16
+-Chinstrap: 0.00196
+-Gentoo: <2*e^-16
+-Male: <2*e^-16
+-Culmen length: 3.46*e^-5
+
+```{r, echo =FALSE}
+# use 15 random data points as test dataset
+splitter <- sample(1:nrow(penguins), 15, replace = F)
+penguins_train <- penguins[-splitter,] # leave those rows out of the training data
+penguins_test <- penguins[splitter,] # use them to create a set of test data
+# train the data
+fit_penguin3_split <- lm(body_mass_g~species + sex + bill_length_mm, data = penguins)
+# predict
+prediction <- predict(fit_penguin3_split, penguins_test)
+# plot the predicted points
+plot(penguins_test$body_mass_g, pch = 1, main = "Predictions")
+points(prediction, pch = 20, col = "red")
+```
+Using the linear regression model as the baseline, the following plot was created which shows the prediction performance of the model. The red points are the predicted values and the white points are actual values. While the predictions are not exactly on the dot, the red points are not far off from the actual values, and it leaves some room for error which accounts for randomness within the data.
+
+# Discussion
+
+## Real World Application
+
+From this analysis, we can conclude that the length of penguins' bill, sex, and species types are all factors of body mass. This finding may help biologists identify penguins with abnormal characteristics (i.e. penguins with smaller bill length) and aid them with food to help the penguin population, especially during global warming.   
+
+## Limitation
+
+Potential limitation of this study is how I restricted myself to only 2 categorical variables and 2 numerical variables. Given more time, I would like to test out other variables such as island, flipper length, and age. I also believe that the cleaned up version of palmerpenguins dataset that I used for this study was handpicked to yield significant results compared to the raw version. In addition, the average penguin body weight in present time might have changed due to how global warming had affected the Antarctic ecosystems. Perhaps an updated dataset may yield different results.
+
+# References
+
+```{r, echo=FALSE}
+citation("palmerpenguins")
+citation("tidyverse")
+citation("EnvStats")
+citation("car")
+citation("psych")
+citation("knitr")
+```
+# Appendix
+
+Data cleaning
+
+```{r}
+#filter missing values
+penguins <- penguins %>%
+              na.omit()
+```
+
+
+EDA
+
+```{r}
+hist(penguins$bill_length_mm)
+```
+
+
+```{r}
+hist(penguins$body_mass_g)
+```
+
+```{r}
+boxplot(penguins$body_mass_g~penguins$sex)
+```
+
+
+```{r}
+boxplot(penguins$body_mass_g~penguins$species)
+```
+
+```{r}
+par(mfrow = c(2,2))
+pairs.panels(penguins, lm = TRUE, cor = T)
+```
+
+Data transformation
+
+```{r}
+penguins$bill_length_mm <- sqrt(penguins$bill_length_mm)
+penguins$body_mass_g <- log(penguins$body_mass_g)
+```
+
+Check assumptions
+
+```{r}
+fit_penguin <- lm(body_mass_g~species, data = penguins)
+par(mfrow=c(2,2))
+plot(fit_penguin)
+```
+Residuals and normality
+```{r}
+res_penguin <- fit_penguin$residuals
+qqPlot(res_penguin)
+```
+
+```{r}
+shapiro.test(res_penguin)
+```
+p-value is 0.05118 > 0.05, fail to reject null hypothesis thus data is normal. But since the p-value is still very
+close to 0.05, we must check the number of samples of each species and see if we can apply CLT.
+
+```{r}
+length(penguins[penguins$species == "Adelie",]$species)
+```
+```{r}
+length(penguins[penguins$species == "Chinstrap",]$species)
+```
+data size is large enough for CLT, residuals are normal
+
+```{r}
+length(penguins[penguins$species == "Gentoo",]$species)
+```
+```{r}
+length(penguins[penguins$sex == "male",]$sex)
+```
+
+```{r}
+length(penguins[penguins$sex == "female",]$sex)
+```
+T-test:
+
+data size is large enough for CLT, residuals are normal
+
+Check Variance
+
+```{r}
+leveneTest(penguins$body_mass_g~penguins$sex)
+```
+p-value = 0.7587 > 0.05, fail to reject null hypothesis thus variances are equal.
+Use Welch's t-test
+
+```{r}
+t.test(penguins$body_mass_g~penguins$sex, equal.var = TRUE)
+```
+Reject the null hypothesis. There is a difference between the means of male and female groups
+
+
+```{r}
+fit_penguin2 <- lm(body_mass_g~sex, data = penguins)
+par(mfrow=c(2,2))
+plot(fit_penguin)
+```
+
+Two way ANOVA:
+
+```{r}
+anova_penguin2 <- aov(body_mass_g~species*sex, data = penguins)
+par(mfrow=c(2,2))
+plot(anova_penguin2)
+```
+```{r}
+summary(anova_penguin2)
+```
+
+
+```{r}
+fit_penguin <- lm(body_mass_g~species, data = penguins)
+fit_penguin2 <- lm(body_mass_g~species + sex, data = penguins)
+fit_penguin3 <- lm(body_mass_g~species + sex + bill_length_mm, data = penguins)
+```
+
+```{r}
+summary(fit_penguin)
+```
+
+```{r}
+summary(fit_penguin2)
+```
+```{r}
+summary(fit_penguin3)
+```
+
+```{r}
+# choose the best model
+# calculate AIC of each model
+result <- AIC(fit_penguin, fit_penguin2, fit_penguin3) 
+models <- list(fit_penguin, fit_penguin2, fit_penguin3)
+result$BIC <- sapply(models, BIC)
+model_summary <- lapply(models, summary)
+# for loop to extract the R^2 and adj R^2
+for (i in 1:length(models)){
+result$rsq[i] <- model_summary[[i]]$r.squared
+result$adj_rsq[i] <- model_summary[[i]]$adj.r.squared
+}
+kable(result, digits = 2, align = "c")
+```
+
+```{r}
+# use 15 random data points as test dataset
+splitter <- sample(1:nrow(penguins), 15, replace = F)
+penguins_train <- penguins[-splitter,] # leave those rows out of the training data
+penguins_test <- penguins[splitter,] # use them to create a set of test data
+# train the data
+fit_penguin3_split <- lm(body_mass_g~species + sex + bill_length_mm, data = penguins)
+# predict
+prediction <- predict(fit_penguin3_split, penguins_test)
+# plot the predicted points
+plot(penguins_test$body_mass_g, pch = 1)
+points(prediction, pch = 20, col = "red")
+```
+
+```{r}
+plot(penguins$body_mass_g, type = "l")
+```
+
